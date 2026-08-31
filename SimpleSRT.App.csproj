@@ -7,11 +7,22 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- Define o nome do arquivo .exe gerado na compilação -->
+    <AssemblyName>SimpleSRT</AssemblyName>
+    <!-- Define o ícone do arquivo .exe e da janela -->
+    <ApplicationIcon>srt.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="FFmpeg.AutoGen" Version="9.0.1.1" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.11" />
+  </ItemGroup>
+
+  <!-- Garante que o arquivo de ícone seja incluído na compilação -->
+  <ItemGroup>
+    <Content Include="srt.ico">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <!-- Mapeamento explícito para o gerador XAML e C# Dev Kit -->
