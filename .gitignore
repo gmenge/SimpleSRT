@@ -1,0 +1,55 @@
+## === .NET / Visual Studio ===
+# Pastas de saída da compilação
+[Bb]in/
+[Oo]bj/
+out/
+
+# Cache do MSBuild e arquivos temporários
+*.user
+*.userosscache
+*.sln.docstates
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Pastas de configuração do ambiente (Visual Studio / VS Code)
+.vs/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# Pacotes e artefatos de publicação
+*.nupkg
+*.snupkg
+*.appx
+*.msix
+*.apk
+*.aab
+
+# Logs e arquivos de execução
+*.log
+*.tmp
+*.bak
+
+## === Arquivos do Sistema Operacional ===
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+## === Executáveis e bibliotecas compiladas na raiz ===
+*.exe
+*.dll
+*.pdb

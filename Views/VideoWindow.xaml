@@ -1,0 +1,15 @@
+<Window x:Class="SimpleSRT.App.Views.VideoWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="SimpleSRT - Vídeo Output" Height="450" Width="800"
+        Background="Black"
+        WindowStartupLocation="Manual"
+        KeyDown="Window_KeyDown">
+    
+    <Grid>
+        <Image Source="{Binding VideoSource}" 
+               Stretch="Uniform" 
+               HorizontalAlignment="Center" 
+               VerticalAlignment="Center"/>
+    </Grid>
+</Window>
