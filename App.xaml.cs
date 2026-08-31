@@ -30,7 +30,10 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
-        // Configuração do caminho das DLLs nativas do FFmpeg
+        // 1. Inicializa o núcleo do LibVLC de forma explícita para evitar conflito com a pasta local Core/
+        LibVLCSharp.Shared.Core.Initialize();
+
+        // 2. Configura o caminho das DLLs nativas do FFmpeg
         ConfigureFFmpeg();
 
         var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
@@ -43,14 +46,7 @@ public partial class App : Application
         // Define o diretório atual onde o executável foi instalado
         string baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
 
-        // Se as DLLs nativas do FFmpeg estiverem soltas na pasta do executável:
+        // Aponta para as DLLs nativas do FFmpeg na pasta de instalação
         ffmpeg.RootPath = baseDirectory;
-
-        // Caso as DLLs fiquem em uma subpasta específica (ex: 'runtimes/win-x64/native' ou 'ffmpeg'):
-        // string ffmpegPath = Path.Combine(baseDirectory, "ffmpeg");
-        // if (Directory.Exists(ffmpegPath))
-        // {
-        //     ffmpeg.RootPath = ffmpegPath;
-        // }
     }
 }
