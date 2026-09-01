@@ -125,6 +125,23 @@ public class MainViewModel : ViewModelBase
         }
     }
 
+    // --- SEÇÃO BLACKMAGIC DECKLINK ---
+    public ObservableCollection<DeckLinkDeviceItem> DeckLinkDevices { get; } = new();
+
+    private DeckLinkDeviceItem? _selectedDeckLinkDevice;
+    public DeckLinkDeviceItem? SelectedDeckLinkDevice
+    {
+        get => _selectedDeckLinkDevice;
+        set
+        {
+            if (SetProperty(ref _selectedDeckLinkDevice, value) && value != null)
+            {
+                ApplyDeckLinkDeviceSelection(value);
+            }
+        }
+    }
+    // ----------------------------------
+
     public ICommand ConnectCommand { get; }
     public ICommand DisconnectCommand { get; }
     public ICommand ToggleVideoWindowCommand { get; }
@@ -140,6 +157,7 @@ public class MainViewModel : ViewModelBase
         ToggleMuteCommand = new RelayCommand(() => IsMuted = !IsMuted);
 
         LoadAudioDevices();
+        LoadDeckLinkDevices();
     }
 
     private void LoadAudioDevices()
@@ -151,6 +169,34 @@ public class MainViewModel : ViewModelBase
             AudioDevices.Add(new AudioDeviceItem(dev.Id, dev.Description));
         }
         SelectedAudioDevice = AudioDevices.FirstOrDefault();
+    }
+
+    private void LoadDeckLinkDevices()
+    {
+        DeckLinkDevices.Clear();
+        // Adiciona opção para desativar a saída física SDI
+        DeckLinkDevices.Add(new DeckLinkDeviceItem(-1, "Desativado (Apenas Janela)"));
+
+        var devices = _mediaPlayerService.GetDeckLinkDevices().ToList();
+        for (int i = 0; i < devices.Count; i++)
+        {
+            DeckLinkDevices.Add(new DeckLinkDeviceItem(i, devices[i]));
+        }
+
+        SelectedDeckLinkDevice = DeckLinkDevices.FirstOrDefault();
+    }
+
+    private void ApplyDeckLinkDeviceSelection(DeckLinkDeviceItem device)
+    {
+        if (device.Index < 0)
+        {
+            _mediaPlayerService.DisableDeckLinkOutput();
+        }
+        else
+        {
+            // Ativa o envio de vídeo direto para o canal SDI correspondente (padrão 1080p59.94)
+            _mediaPlayerService.EnableDeckLinkOutput(device.Index);
+        }
     }
 
     private void ExecuteConnect()
@@ -169,6 +215,12 @@ public class MainViewModel : ViewModelBase
         _mediaPlayerService.Play(config.ToSrtUrl(), config.NetworkCachingMs);
         _mediaPlayerService.Volume = Volume;
         _mediaPlayerService.IsMuted = IsMuted;
+
+        // Caso uma porta SDI esteja selecionada, garanta a ativação na hora do Play
+        if (SelectedDeckLinkDevice != null && SelectedDeckLinkDevice.Index >= 0)
+        {
+            _mediaPlayerService.EnableDeckLinkOutput(SelectedDeckLinkDevice.Index);
+        }
 
         IsConnected = true;
 
@@ -242,3 +294,4 @@ public class MainViewModel : ViewModelBase
 }
 
 public record AudioDeviceItem(string Id, string Name);
+public record DeckLinkDeviceItem(int Index, string Name);
