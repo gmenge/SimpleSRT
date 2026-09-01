@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
-namespace SimpleSRT.App.ViewModels;
+namespace SimpleSRT.App.Core;
 
 public abstract class ViewModelBase : INotifyPropertyChanged
 {
