@@ -1,15 +1,18 @@
 using System;
+using System.Collections.Generic;
 
-namespace SimpleSRT.App.Services.Interfaces
+namespace SimpleSRT.App.Services.Interfaces;
+
+public interface IMediaPlayerService : IDisposable
 {
-    public interface IMediaPlayerService : IDisposable
-    {
-        // Evento disparado a cada novo frame YUV/RGB decodificado da rede
-        event Action<byte[], int, int>? OnFrameDecoded;
+    event Action<byte[], int, int>? OnFrameDecoded;
 
-        bool IsPlaying { get; }
-        void Initialize();
-        void Play(string streamUrl, int networkCachingMs);
-        void Stop();
-    }
+    void Play(string url, int networkCachingMs);
+    void Stop();
+
+    int Volume { get; set; }
+    bool IsMuted { get; set; }
+
+    IEnumerable<(string Id, string Description)> GetAudioOutputs();
+    void SetAudioOutput(string deviceId);
 }

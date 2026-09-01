@@ -1,154 +1,144 @@
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using System.Threading;
-using System.Threading.Tasks;
-using FFmpeg.AutoGen;
+using LibVLCSharp.Shared;
 using SimpleSRT.App.Services.Interfaces;
 
-namespace SimpleSRT.App.Services
+namespace SimpleSRT.App.Services;
+
+public class VLCPlayerService : IMediaPlayerService
 {
-    public unsafe class VLCPlayerService : IMediaPlayerService
+    private readonly LibVLC _libVlc;
+    private readonly MediaPlayer _mediaPlayer;
+    private int _videoWidth;
+    private int _videoHeight;
+
+    public event Action<byte[], int, int>? OnFrameDecoded;
+
+    public VLCPlayerService()
     {
-        public event Action<byte[], int, int>? OnFrameDecoded;
-        public bool IsPlaying { get; private set; }
+        // Qualificação explícita do namespace para evitar conflito com SimpleSRT.App.Core
+        LibVLCSharp.Shared.Core.Initialize();
 
-        private CancellationTokenSource? _cts;
-
-        public void Initialize()
-{
-    // 1. Define onde o C# deve procurar as DLLs nativas
-    ffmpeg.RootPath = AppDomain.CurrentDomain.BaseDirectory;
-
-    // 2. Garante que os ponteiros de funções C nativas sejam carregados na memória
-    DynamicallyLoadedBindings.Initialize();
-
-    // 3. Inicializa os protocolos de rede (necessário para abrir URLs SRT/UDP/HTTP)
-    ffmpeg.avformat_network_init();
-}
-
-        public void Play(string streamUrl, int networkCachingMs)
+        var options = new[]
         {
-            Stop();
-            IsPlaying = true;
-            _cts = new CancellationTokenSource();
+            "--no-osd",
+            "--no-snapshot-preview",
+            "--quiet"
+        };
 
-            Task.Run(() => DecodeLoop(streamUrl, _cts.Token));
-        }
+        _libVlc = new LibVLC(options);
+        _mediaPlayer = new MediaPlayer(_libVlc);
 
-        private void DecodeLoop(string streamUrl, CancellationToken token)
+        ConfigureVideoCallbacks();
+    }
+
+    public int Volume
+    {
+        get => _mediaPlayer.Volume;
+        set => _mediaPlayer.Volume = Math.Clamp(value, 0, 100);
+    }
+
+    public bool IsMuted
+    {
+        get => _mediaPlayer.Mute;
+        set => _mediaPlayer.Mute = value;
+    }
+
+    public IEnumerable<(string Id, string Description)> GetAudioOutputs()
+    {
+        var devices = new List<(string Id, string Description)>();
+        var outputDevices = _mediaPlayer.AudioOutputDeviceEnum;
+
+        foreach (var device in outputDevices)
         {
-            AVFormatContext* pFormatContext = ffmpeg.avformat_alloc_context();
-
-            if (ffmpeg.avformat_open_input(&pFormatContext, streamUrl, null, null) < 0)
+            if (!string.IsNullOrEmpty(device.DeviceIdentifier))
             {
-                IsPlaying = false;
-                return;
+                devices.Add((device.DeviceIdentifier, device.Description ?? device.DeviceIdentifier));
             }
-
-            if (ffmpeg.avformat_find_stream_info(pFormatContext, null) < 0) return;
-
-            int videoStream = -1;
-            for (int i = 0; i < pFormatContext->nb_streams; i++)
-            {
-                if (pFormatContext->streams[i]->codecpar->codec_type == AVMediaType.AVMEDIA_TYPE_VIDEO)
-                {
-                    videoStream = i;
-                    break;
-                }
-            }
-
-            if (videoStream == -1) return;
-
-            AVCodecParameters* pCodecParams = pFormatContext->streams[videoStream]->codecpar;
-            AVCodec* pCodec = ffmpeg.avcodec_find_decoder(pCodecParams->codec_id);
-            AVCodecContext* pCodecContext = ffmpeg.avcodec_alloc_context3(pCodec);
-            ffmpeg.avcodec_parameters_to_context(pCodecContext, pCodecParams);
-            ffmpeg.avcodec_open2(pCodecContext, pCodec, null);
-
-            AVPacket* pPacket = ffmpeg.av_packet_alloc();
-            AVFrame* pFrame = ffmpeg.av_frame_alloc();
-            AVFrame* pFrameBgra = ffmpeg.av_frame_alloc();
-
-            SwsContext* swsContext = null;
-            byte[]? managedBuffer = null;
-
-            while (!token.IsCancellationRequested && ffmpeg.av_read_frame(pFormatContext, pPacket) >= 0)
-            {
-                if (pPacket->stream_index == videoStream)
-                {
-                    if (ffmpeg.avcodec_send_packet(pCodecContext, pPacket) == 0)
-                    {
-                        while (ffmpeg.avcodec_receive_frame(pCodecContext, pFrame) == 0)
-                        {
-                            int width = pCodecContext->width;
-                            int height = pCodecContext->height;
-
-                            if (swsContext == null)
-                            {
-                                // Fix 1: Constante bilinear inteira para SWS
-                                swsContext = ffmpeg.sws_getContext(
-                                    width, height, pCodecContext->pix_fmt,
-                                    width, height, AVPixelFormat.AV_PIX_FMT_BGRA,
-                                    2, null, null, null); // 2 = SWS_BILINEAR
-
-                                int bufferSize = ffmpeg.av_image_get_buffer_size(AVPixelFormat.AV_PIX_FMT_BGRA, width, height, 1);
-                                managedBuffer = new byte[bufferSize];
-                            }
-
-                            fixed (byte* pBuffer = managedBuffer)
-                            {
-                                // Fix 2: Mapeamento direto de ponteiros de buffer sem conversão inválida de array
-                                ffmpeg.av_image_fill_arrays(
-                                    ref *(byte_ptrArray4*)&pFrameBgra->data,
-                                    ref *(int_array4*)&pFrameBgra->linesize,
-                                    pBuffer,
-                                    AVPixelFormat.AV_PIX_FMT_BGRA,
-                                    width,
-                                    height,
-                                    1);
-
-                                // Realiza a conversão YUV420p -> BGRA
-                                ffmpeg.sws_scale(
-                                    swsContext,
-                                    pFrame->data,
-                                    pFrame->linesize,
-                                    0,
-                                    height,
-                                    pFrameBgra->data,
-                                    pFrameBgra->linesize);
-
-                                OnFrameDecoded?.Invoke(managedBuffer!, width, height);
-                            }
-                        }
-                    }
-                }
-                ffmpeg.av_packet_unref(pPacket);
-            }
-
-            // Fix 3: Liberação de ponteiros nativos sem uso de instruções 'fixed' desnecessárias
-            if (swsContext != null) ffmpeg.sws_freeContext(swsContext);
-            ffmpeg.av_frame_free(&pFrameBgra);
-            ffmpeg.av_frame_free(&pFrame);
-            ffmpeg.av_packet_free(&pPacket);
-
-            AVCodecContext* ctx = pCodecContext;
-            ffmpeg.avcodec_free_context(&ctx);
-
-            AVFormatContext* fmtCtx = pFormatContext;
-            ffmpeg.avformat_close_input(&fmtCtx);
-
-            IsPlaying = false;
         }
 
-        public void Stop()
+        return devices;
+    }
+
+    public void SetAudioOutput(string deviceId)
+    {
+        if (!string.IsNullOrEmpty(deviceId))
         {
-            _cts?.Cancel();
-            IsPlaying = false;
+            _mediaPlayer.SetOutputDevice(deviceId);
         }
+    }
 
-        public void Dispose()
+    public void Play(string url, int networkCachingMs)
+    {
+        Stop();
+
+        var mediaOptions = new[]
         {
-            Stop();
+            $":network-caching={networkCachingMs}",
+            ":clock-jitter=0",
+            ":clock-synchro=0"
+        };
+
+        using var media = new Media(_libVlc, url, FromType.FromLocation, mediaOptions);
+        _mediaPlayer.Play(media);
+    }
+
+    public void Stop()
+    {
+        if (_mediaPlayer.IsPlaying)
+        {
+            _mediaPlayer.Stop();
         }
+    }
+
+    private void ConfigureVideoCallbacks()
+    {
+        _mediaPlayer.SetVideoFormatCallbacks(VideoFormatCallback, null);
+        _mediaPlayer.SetVideoCallbacks(LockCallback, null, DisplayCallback);
+    }
+
+    private uint VideoFormatCallback(ref IntPtr opaque, IntPtr chroma, ref uint width, ref uint height, ref uint pitches, ref uint lines)
+    {
+        _videoWidth = (int)width;
+        _videoHeight = (int)height;
+
+        byte[] chromaBytes = System.Text.Encoding.ASCII.GetBytes("RV32");
+        Marshal.Copy(chromaBytes, 0, chroma, 4);
+
+        pitches = (uint)(_videoWidth * 4);
+        lines = (uint)_videoHeight;
+
+        return 1;
+    }
+
+    private IntPtr LockCallback(IntPtr opaque, IntPtr planes)
+    {
+        int bufferSize = _videoWidth * _videoHeight * 4;
+        IntPtr buffer = Marshal.AllocHGlobal(bufferSize);
+        Marshal.WriteIntPtr(planes, buffer);
+        return buffer;
+    }
+
+    private void DisplayCallback(IntPtr opaque, IntPtr picture)
+    {
+        if (picture == IntPtr.Zero || _videoWidth <= 0 || _videoHeight <= 0)
+            return;
+
+        int bufferSize = _videoWidth * _videoHeight * 4;
+        byte[] frameData = new byte[bufferSize];
+
+        Marshal.Copy(picture, frameData, 0, bufferSize);
+        Marshal.FreeHGlobal(picture);
+
+        OnFrameDecoded?.Invoke(frameData, _videoWidth, _videoHeight);
+    }
+
+    public void Dispose()
+    {
+        Stop();
+        _mediaPlayer.Dispose();
+        _libVlc.Dispose();
+        GC.SuppressFinalize(this);
     }
 }
