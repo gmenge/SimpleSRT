@@ -17,7 +17,7 @@ public partial class App : Application
         var services = new ServiceCollection();
 
         // Registro das dependências da aplicação
-        services.AddSingleton<IMediaPlayerService, VLCPlayerService>();
+        services.AddSingleton<IMediaPlayerService, PlayerService>();
         services.AddSingleton<MainViewModel>();
         services.AddTransient<MainWindow>();
 

@@ -3,7 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="SimpleSRT - Painel de Controle" Height="310" Width="870"
         WindowStartupLocation="CenterScreen"
-        Background="#1E1E1E">
+        Background="#1E1E1E"
+        Icon="pack://application:,,,/srt.ico">
 
     <Grid Margin="15">
         <Grid.RowDefinitions>
@@ -119,11 +120,22 @@
 
                 <!-- Mute -->
                 <StackPanel Grid.Column="4" VerticalAlignment="Bottom">
-                    <Button Content="{Binding IsMuted, Converter={x:Null}, TargetNullValue='Mute'}" 
-                            Command="{Binding ToggleMuteCommand}"
+                    <Button Command="{Binding ToggleMuteCommand}"
                             Height="30"
                             Background="#3E3E42" Foreground="White"
-                            BorderThickness="0"/>
+                            BorderThickness="0">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Content" Value="Mute"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsMuted}" Value="True">
+                                        <Setter Property="Content" Value="Unmute"/>
+                                        <Setter Property="Background" Value="#D9534F"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
                 </StackPanel>
             </Grid>
         </Border>
