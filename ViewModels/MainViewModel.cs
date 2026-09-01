@@ -1,9 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
-using System.Windows.Media.Imaging;
 using SimpleSRT.App.Core;
 using SimpleSRT.App.Models;
 using SimpleSRT.App.Services.Interfaces;
@@ -15,6 +16,8 @@ public class MainViewModel : ViewModelBase
 {
     private readonly IMediaPlayerService _mediaPlayerService;
     private VideoWindow? _videoWindow;
+
+    public IMediaPlayerService MediaPlayerService => _mediaPlayerService;
 
     private string _host = "127.0.0.1";
     public string Host
@@ -43,7 +46,7 @@ public class MainViewModel : ViewModelBase
         }
     }
 
-    public bool IsHostEnabled => SelectedMode.ToLower() == "caller";
+    public bool IsHostEnabled => SelectedMode.Equals("caller", StringComparison.OrdinalIgnoreCase);
 
     public ObservableCollection<string> SrtModes { get; } = new() { "caller", "listener" };
 
@@ -122,13 +125,6 @@ public class MainViewModel : ViewModelBase
         }
     }
 
-    private WriteableBitmap? _videoSource;
-    public WriteableBitmap? VideoSource
-    {
-        get => _videoSource;
-        set => SetProperty(ref _videoSource, value);
-    }
-
     public ICommand ConnectCommand { get; }
     public ICommand DisconnectCommand { get; }
     public ICommand ToggleVideoWindowCommand { get; }
@@ -137,7 +133,6 @@ public class MainViewModel : ViewModelBase
     public MainViewModel(IMediaPlayerService mediaPlayerService)
     {
         _mediaPlayerService = mediaPlayerService;
-        _mediaPlayerService.OnFrameDecoded += OnFrameDecoded;
 
         ConnectCommand = new RelayCommand(ExecuteConnect, () => !IsConnected);
         DisconnectCommand = new RelayCommand(ExecuteDisconnect, () => IsConnected);
@@ -162,7 +157,7 @@ public class MainViewModel : ViewModelBase
     {
         var config = new StreamConfig
         {
-            Host = SelectedMode.ToLower() == "listener" ? "0.0.0.0" : Host,
+            Host = SelectedMode.Equals("listener", StringComparison.OrdinalIgnoreCase) ? "0.0.0.0" : Host,
             Port = Port,
             Mode = SelectedMode,
             LatencyMs = LatencyMs,
@@ -183,9 +178,12 @@ public class MainViewModel : ViewModelBase
 
     private void ExecuteDisconnect()
     {
-        _mediaPlayerService.Stop();
         IsConnected = false;
-        VideoSource = null;
+
+        Task.Run(() =>
+        {
+            _mediaPlayerService.Stop();
+        });
 
         ((RelayCommand)ConnectCommand).RaiseCanExecuteChanged();
         ((RelayCommand)DisconnectCommand).RaiseCanExecuteChanged();
@@ -240,29 +238,6 @@ public class MainViewModel : ViewModelBase
             window.WindowStyle = WindowStyle.SingleBorderWindow;
             window.WindowState = WindowState.Normal;
         }
-    }
-
-    private void OnFrameDecoded(byte[] frameData, int width, int height)
-    {
-        Application.Current.Dispatcher.Invoke(() =>
-        {
-            if (VideoSource == null || VideoSource.PixelWidth != width || VideoSource.PixelHeight != height)
-            {
-                VideoSource = new WriteableBitmap(
-                    width,
-                    height,
-                    96,
-                    96,
-                    System.Windows.Media.PixelFormats.Bgra32,
-                    null);
-            }
-
-            VideoSource.WritePixels(
-                new Int32Rect(0, 0, width, height),
-                frameData,
-                width * 4,
-                0);
-        });
     }
 }
 
