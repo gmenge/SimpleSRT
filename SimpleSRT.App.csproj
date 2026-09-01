@@ -7,9 +7,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <!-- Define o nome do arquivo .exe gerado na compilação -->
     <AssemblyName>SimpleSRT</AssemblyName>
-    <!-- Define o ícone do arquivo .exe e da janela -->
     <ApplicationIcon>srt.ico</ApplicationIcon>
   </PropertyGroup>
 
@@ -20,14 +18,12 @@
     <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.23.1" />
   </ItemGroup>
 
-  <!-- Garante que o arquivo de ícone seja incluído na compilação -->
   <ItemGroup>
     <Content Include="srt.ico">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
 
-  <!-- Mapeamento explícito para o gerador XAML -->
   <ItemGroup>
     <Page Update="Views\*.xaml">
       <Generator>MSBuild:Compile</Generator>

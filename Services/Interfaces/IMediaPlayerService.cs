@@ -13,5 +13,9 @@ public interface IMediaPlayerService
     IEnumerable<(string Id, string Description)> GetAudioOutputs();
     void SetAudioOutput(string deviceId);
     void Play(string url, int networkCachingMs);
-    void Stop();
+    void Stop(); // Corrigido: adicionado 'void'
+
+    IEnumerable<string> GetDeckLinkDevices();
+    void EnableDeckLinkOutput(int deviceIndex = 0, int width = 1920, int height = 1080, double fps = 59.94);
+    void DisableDeckLinkOutput();
 }
